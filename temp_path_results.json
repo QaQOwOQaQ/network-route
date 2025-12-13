@@ -1,0 +1,46 @@
+{
+  "CGR": {
+    "success_rate": 0.2,
+    "deadline_satisfaction_rate": 0.2,
+    "avg_delay": 62.975240831974574,
+    "median_delay": 44.021853422266325,
+    "std_delay": 34.694016838535354,
+    "avg_cost": 20.27914556689211,
+    "avg_path_length": 1.25,
+    "avg_time_margin": 75.72541038653131,
+    "avg_delay_per_hop": 57.088238669285275
+  },
+  "Dijkstra": {
+    "success_rate": 0.6,
+    "deadline_satisfaction_rate": 0.6,
+    "avg_delay": 57.3366824798145,
+    "median_delay": 62.23676965444311,
+    "std_delay": 42.99005953790234,
+    "avg_cost": 57.3366824798145,
+    "avg_path_length": 2.3333333333333335,
+    "avg_time_margin": 91.18066083656538,
+    "avg_delay_per_hop": 23.530396247579365
+  },
+  "A*": {
+    "success_rate": 0.6,
+    "deadline_satisfaction_rate": 0.6,
+    "avg_delay": 57.3366824798145,
+    "median_delay": 62.23676965444311,
+    "std_delay": 42.99005953790234,
+    "avg_cost": 57.3366824798145,
+    "avg_path_length": 2.3333333333333335,
+    "avg_time_margin": 91.18066083656538,
+    "avg_delay_per_hop": 23.530396247579365
+  },
+  "Distributed": {
+    "success_rate": 0.6,
+    "deadline_satisfaction_rate": 0.6,
+    "avg_delay": 57.3366824798145,
+    "median_delay": 62.23676965444311,
+    "std_delay": 42.99005953790234,
+    "avg_cost": 60.862213144916296,
+    "avg_path_length": 2.3333333333333335,
+    "avg_time_margin": 91.18066083656538,
+    "avg_delay_per_hop": 23.530396247579365
+  }
+}
