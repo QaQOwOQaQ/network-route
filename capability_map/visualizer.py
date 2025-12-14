@@ -191,41 +191,98 @@ class CapabilityMapVisualizer:
         
         algo_names = list(comparison_results.keys())
         
-        # 左图：成功率和其他指标
+        # 左图：能力相关指标（分别显示每个算法的指标）
         ax1 = axes[0]
-        metrics = ['success_rate', 'avg_capability', 'avg_bandwidth']
-        metric_names = ['成功率', '平均能力', '平均带宽']
         
-        x = np.arange(len(algo_names))
-        width = 0.25
+        # 收集所有算法的能力相关指标
+        all_capability_data = []
+        all_capability_labels = []
         
-        for i, (metric, name) in enumerate(zip(metrics, metric_names)):
-            values = [comparison_results[algo].get(metric, 0) for algo in algo_names]
-            ax1.bar(x + i * width, values, width, label=name, alpha=0.8)
+        for algo in algo_names:
+            algo_metrics = comparison_results[algo]
+            if 'TEG/CGR建模' in algo:
+                # TEG/CGR 指标
+                if 'avg_capability' in algo_metrics:
+                    all_capability_data.append(algo_metrics['avg_capability'])
+                    all_capability_labels.append(f'{algo}\n平均能力')
+                if 'success_rate' in algo_metrics:
+                    all_capability_data.append(algo_metrics['success_rate'])
+                    all_capability_labels.append(f'{algo}\n成功率')
+                if 'avg_bandwidth' in algo_metrics:
+                    all_capability_data.append(algo_metrics['avg_bandwidth'])
+                    all_capability_labels.append(f'{algo}\n平均带宽')
+            elif '空间网格索引' in algo:
+                # 空间网格索引指标
+                if 'avg_query_capability' in algo_metrics:
+                    all_capability_data.append(algo_metrics['avg_query_capability'])
+                    all_capability_labels.append(f'{algo}\n平均查询能力')
+                if 'avg_cell_capability' in algo_metrics:
+                    all_capability_data.append(algo_metrics['avg_cell_capability'])
+                    all_capability_labels.append(f'{algo}\n平均网格能力')
+                if 'avg_query_node_count' in algo_metrics:
+                    all_capability_data.append(algo_metrics['avg_query_node_count'])
+                    all_capability_labels.append(f'{algo}\n平均查询节点数')
         
-        ax1.set_xlabel('算法', fontsize=12)
+        if all_capability_data:
+            x1 = np.arange(len(all_capability_data))
+            bars1 = ax1.bar(x1, all_capability_data, alpha=0.8, 
+                           color=['#1f77b4' if 'TEG/CGR' in label else '#ff7f0e' for label in all_capability_labels])
+            ax1.set_xticks(x1)
+            ax1.set_xticklabels(all_capability_labels, rotation=45, ha='right', fontsize=9)
+            # 添加数值标签
+            for bar, val in zip(bars1, all_capability_data):
+                height = bar.get_height()
+                ax1.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{val:.2f}', ha='center', va='bottom', fontsize=8)
+        
+        ax1.set_xlabel('算法指标', fontsize=12)
         ax1.set_ylabel('指标值', fontsize=12)
         ax1.set_title('性能指标对比', fontsize=14, fontweight='bold')
-        ax1.set_xticks(x + width)
-        ax1.set_xticklabels(algo_names, rotation=45, ha='right')
-        ax1.legend()
         ax1.grid(axis='y', alpha=0.3)
         
-        # 右图：路径长度和接触数
+        # 右图：结构特征对比（分别显示每个算法的结构指标）
         ax2 = axes[1]
-        metrics2 = ['avg_path_length', 'avg_contact_count']
-        metric_names2 = ['平均路径长度', '平均接触数']
         
-        for i, (metric, name) in enumerate(zip(metrics2, metric_names2)):
-            values = [comparison_results[algo].get(metric, 0) for algo in algo_names]
-            ax2.bar(x + i * width, values, width, label=name, alpha=0.8)
+        all_structure_data = []
+        all_structure_labels = []
         
-        ax2.set_xlabel('算法', fontsize=12)
+        for algo in algo_names:
+            algo_metrics = comparison_results[algo]
+            if 'TEG/CGR建模' in algo:
+                # TEG/CGR 结构指标
+                if 'avg_path_length' in algo_metrics:
+                    all_structure_data.append(algo_metrics['avg_path_length'])
+                    all_structure_labels.append(f'{algo}\n平均路径长度')
+                if 'avg_contact_count' in algo_metrics:
+                    all_structure_data.append(algo_metrics['avg_contact_count'])
+                    all_structure_labels.append(f'{algo}\n平均接触数')
+            elif '空间网格索引' in algo:
+                # 空间网格索引结构指标
+                if 'total_cells' in algo_metrics:
+                    all_structure_data.append(algo_metrics['total_cells'])
+                    all_structure_labels.append(f'{algo}\n总网格数')
+                if 'max_cell_capability' in algo_metrics:
+                    all_structure_data.append(algo_metrics['max_cell_capability'])
+                    all_structure_labels.append(f'{algo}\n最大网格能力')
+                if 'min_cell_capability' in algo_metrics:
+                    all_structure_data.append(algo_metrics['min_cell_capability'])
+                    all_structure_labels.append(f'{algo}\n最小网格能力')
+        
+        if all_structure_data:
+            x2 = np.arange(len(all_structure_data))
+            bars2 = ax2.bar(x2, all_structure_data, alpha=0.8,
+                           color=['#1f77b4' if 'TEG/CGR' in label else '#ff7f0e' for label in all_structure_labels])
+            ax2.set_xticks(x2)
+            ax2.set_xticklabels(all_structure_labels, rotation=45, ha='right', fontsize=9)
+            # 添加数值标签
+            for bar, val in zip(bars2, all_structure_data):
+                height = bar.get_height()
+                ax2.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{val:.2f}', ha='center', va='bottom', fontsize=8)
+        
+        ax2.set_xlabel('算法指标', fontsize=12)
         ax2.set_ylabel('指标值', fontsize=12)
-        ax2.set_title('路径特征对比', fontsize=14, fontweight='bold')
-        ax2.set_xticks(x + width)
-        ax2.set_xticklabels(algo_names, rotation=45, ha='right')
-        ax2.legend()
+        ax2.set_title('结构特征对比', fontsize=14, fontweight='bold')
         ax2.grid(axis='y', alpha=0.3)
         
         plt.suptitle(title, fontsize=16, fontweight='bold', y=1.02)

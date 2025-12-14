@@ -5,8 +5,15 @@
 
 import os
 import sys
+import warnings
 from typing import Dict, List
 import numpy as np
+
+# 全局抑制 matplotlib 字体警告
+warnings.filterwarnings('ignore', category=UserWarning, message='.*Glyph.*missing from font.*')
+warnings.filterwarnings('ignore', category=UserWarning, message='.*CJK.*')
+warnings.filterwarnings('ignore', category=UserWarning, message='.*missing from font.*')
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
 
 from .scenario_generator import ScenarioGenerator
 from .cgr_algorithm import CGRAlgorithm

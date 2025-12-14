@@ -58,10 +58,17 @@ class PerformancePredictionEvaluator:
         mse = np.mean((delays_pred - delays_actual) ** 2)
         rmse = np.sqrt(mse)
         
-        # MAPE
+        # MAPE (平均绝对百分比误差)
+        # 避免除以0：只计算实际值不为0的情况
         with np.errstate(divide='ignore', invalid='ignore'):
-            mape = np.mean(np.abs((delays_actual - delays_pred) / delays_actual)) * 100
-            mape = mape if not np.isnan(mape) else float('inf')
+            # 过滤出实际值不为0的数据点
+            non_zero_mask = delays_actual != 0
+            if np.any(non_zero_mask):
+                mape = np.mean(np.abs((delays_actual[non_zero_mask] - delays_pred[non_zero_mask]) / delays_actual[non_zero_mask])) * 100
+                mape = mape if not np.isnan(mape) and not np.isinf(mape) else float('inf')
+            else:
+                # 如果所有实际值都是0，无法计算MAPE
+                mape = float('inf')
         
         # R² 分数
         ss_res = np.sum((delays_actual - delays_pred) ** 2)

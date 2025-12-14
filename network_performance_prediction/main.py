@@ -4,8 +4,15 @@
 """
 
 import os
+import warnings
 import numpy as np
 from typing import Dict
+
+# 全局抑制 matplotlib 字体警告
+warnings.filterwarnings('ignore', category=UserWarning, message='.*Glyph.*missing from font.*')
+warnings.filterwarnings('ignore', category=UserWarning, message='.*CJK.*')
+warnings.filterwarnings('ignore', category=UserWarning, message='.*missing from font.*')
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
 from .scenario_generator import PerformanceScenarioGenerator
 from .queueing_theory import QueueingTheoryPredictor
 from .mlp_predictor import MLPPredictor

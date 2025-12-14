@@ -118,12 +118,16 @@ class PerformanceScenarioGenerator:
         for t in range(time_steps):
             timestamp = t * time_interval
             for node_id in range(num_nodes):
-                # 生成到达率（随时间变化）
-                arrival_rate = base_service_rate * (0.3 + 0.7 * np.sin(t / 10.0) * np.random.uniform(0.8, 1.2))
-                service_rate = base_service_rate * np.random.uniform(0.9, 1.1)
+                # 生成到达率（随时间变化，但限制在合理范围内）
+                # 使用更保守的范围，避免极端利用率
+                arrival_rate = base_service_rate * (0.2 + 0.6 * np.sin(t / 10.0) * np.random.uniform(0.8, 1.0))
+                arrival_rate = max(0.0, arrival_rate)  # 确保非负
                 
-                # 计算利用率
-                utilization = min(arrival_rate / service_rate, 0.99)
+                service_rate = base_service_rate * np.random.uniform(0.95, 1.05)
+                service_rate = max(0.001, service_rate)  # 确保为正
+                
+                # 计算利用率，限制在合理范围内（最大0.95，避免接近1）
+                utilization = min(arrival_rate / service_rate, 0.95)
                 
                 # 计算队列长度（M/M/1模型）
                 if utilization < 1.0:
@@ -131,14 +135,35 @@ class PerformanceScenarioGenerator:
                 else:
                     queue_length = 100.0  # 饱和状态
                 
-                # 计算延迟（Little's Law）
-                if arrival_rate > 0:
-                    delay = queue_length / arrival_rate * 1000  # 转换为ms
-                else:
-                    delay = 0.0
-                
                 # 计算丢包率（当利用率高时）
                 packet_loss = max(0, (utilization - 0.8) * 0.5) if utilization > 0.8 else 0.0
+                
+                # 计算"实际"延迟（模拟真实网络行为，而不是直接使用理论公式）
+                # 添加随机波动、网络拥塞、路由变化等因素的影响
+                if arrival_rate > 0:
+                    # 基础延迟（Little's Law）
+                    base_delay = queue_length / arrival_rate * 1000
+                    
+                    # 添加真实网络的随机波动（±20%）
+                    noise_factor = np.random.uniform(0.8, 1.2)
+                    
+                    # 考虑网络拥塞的影响（当利用率高时，延迟波动更大）
+                    if utilization > 0.7:
+                        congestion_factor = 1.0 + (utilization - 0.7) * 0.3 * np.random.uniform(0.5, 1.5)
+                    else:
+                        congestion_factor = 1.0
+                    
+                    # 考虑丢包对延迟的影响（丢包会导致重传，增加延迟）
+                    if packet_loss > 0:
+                        retransmission_delay = packet_loss * 50.0 * np.random.uniform(0.5, 1.5)  # 重传延迟
+                    else:
+                        retransmission_delay = 0.0
+                    
+                    # 计算实际延迟（理论值 + 噪声 + 拥塞 + 重传）
+                    delay = base_delay * noise_factor * congestion_factor + retransmission_delay
+                    delay = max(0.0, delay)  # 确保非负
+                else:
+                    delay = 0.0
                 
                 # 计算吞吐量
                 throughput = arrival_rate * (1 - packet_loss) * 8 / 1e6  # 转换为Mbps

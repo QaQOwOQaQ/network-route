@@ -7,9 +7,34 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import networkx as nx
 import numpy as np
+import warnings
 from typing import List, Dict, Optional
 from .scenario_generator import Node, Link, Task, ScenarioGenerator
 from .cgr_algorithm import PathResult
+
+# 抑制 matplotlib 字体警告 - 必须在导入 matplotlib 后立即设置
+import os
+# 设置环境变量，禁用 matplotlib 字体警告
+os.environ['MPLCONFIGDIR'] = '/tmp/matplotlib'
+
+import matplotlib
+matplotlib.rcParams['font.family'] = 'sans-serif'
+# 禁用字体警告
+matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'sans-serif']
+
+# 抑制所有 matplotlib 相关的 UserWarning（特别是字体警告）
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
+warnings.filterwarnings('ignore', message='.*Glyph.*missing from font.*')
+warnings.filterwarnings('ignore', message='.*CJK.*')
+warnings.filterwarnings('ignore', message='.*missing from font.*')
+warnings.filterwarnings('ignore', message='.*font.*')
+
+# 设置 matplotlib 日志级别，避免字体警告
+import logging
+logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
+logging.getLogger('matplotlib.text').setLevel(logging.ERROR)
+logging.getLogger('matplotlib.backends').setLevel(logging.ERROR)
 
 
 class Visualizer:
@@ -25,14 +50,15 @@ class Visualizer:
         self.figsize = figsize
         # 配置中文字体，优先使用Noto Sans CJK（支持中文、日文、韩文）
         import matplotlib.font_manager as fm
+        import os
         
         # 查找可用的中文字体（Noto CJK系列支持中文）
         chinese_fonts = ['Noto Sans CJK SC', 'Noto Sans CJK TC', 'Noto Sans CJK JP', 
                         'Noto Sans CJK KR', 'WenQuanYi Micro Hei', 'WenQuanYi Zen Hei', 
-                        'SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
+                        'SimHei', 'Microsoft YaHei', 'Arial Unicode MS', 'DejaVu Sans']
         
-        # 获取所有可用字体名称
-        available_fonts = [f.name for f in fm.fontManager.ttflist]
+        # 获取所有可用字体名称和路径
+        available_fonts = {f.name: f.fname for f in fm.fontManager.ttflist}
         font_to_use = None
         
         # 优先查找简体中文版本
@@ -41,12 +67,44 @@ class Visualizer:
                 font_to_use = font
                 break
         
+        # 如果没找到，尝试查找系统字体目录中的中文字体
+        if not font_to_use:
+            # 常见的系统字体路径
+            font_dirs = [
+                '/usr/share/fonts',
+                '/usr/local/share/fonts',
+                os.path.expanduser('~/.fonts'),
+                '/System/Library/Fonts',  # macOS
+            ]
+            
+            # 查找包含 CJK 或中文相关的字体文件
+            for font_dir in font_dirs:
+                if os.path.exists(font_dir):
+                    for root, dirs, files in os.walk(font_dir):
+                        for file in files:
+                            if file.endswith(('.ttf', '.otf')) and any(
+                                keyword in file.lower() for keyword in ['cjk', 'noto', 'wenquanyi', 'simhei']
+                            ):
+                                try:
+                                    # 尝试加载字体
+                                    font_path = os.path.join(root, file)
+                                    font_prop = fm.FontProperties(fname=font_path)
+                                    font_to_use = font_prop.get_name()
+                                    break
+                                except:
+                                    continue
+                        if font_to_use:
+                            break
+                if font_to_use:
+                    break
+        
+        # 如果找到了字体，设置它
         if font_to_use:
             # 设置字体，确保中文字符能正确显示
             plt.rcParams['font.sans-serif'] = [font_to_use] + [f for f in plt.rcParams['font.sans-serif'] if f != font_to_use]
         else:
-            # 如果没有找到中文字体，尝试使用任何包含Noto的字体
-            noto_fonts = [f for f in available_fonts if 'Noto' in f and 'CJK' in f]
+            # 如果仍然没找到，尝试使用任何包含 Noto 的字体
+            noto_fonts = [f for f in available_fonts.keys() if 'Noto' in f]
             if noto_fonts:
                 font_to_use = noto_fonts[0]
                 plt.rcParams['font.sans-serif'] = [font_to_use] + plt.rcParams['font.sans-serif']
@@ -114,10 +172,13 @@ class Visualizer:
         
         ax.set_title(title, fontsize=16, fontweight='bold')
         ax.axis('off')
-        plt.tight_layout()
         
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        # 抑制字体警告
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=UserWarning)
+            plt.tight_layout()
+            if save_path:
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
     
     def plot_paths_comparison(
@@ -265,10 +326,13 @@ class Visualizer:
         handles, labels = ax.get_legend_handles_labels()
         ax.legend(handles=handles + node_legend, loc='upper right', fontsize=9)
         ax.axis('off')
-        plt.tight_layout()
         
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        # 抑制字体警告
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=UserWarning)
+            plt.tight_layout()
+            if save_path:
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
     
     def plot_performance_comparison(
@@ -352,10 +416,13 @@ class Visualizer:
             ax.grid(axis='y', alpha=0.3)
         
         plt.suptitle(title, fontsize=16, fontweight='bold', y=1.02)
-        plt.tight_layout()
         
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        # 抑制字体警告
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=UserWarning)
+            plt.tight_layout()
+            if save_path:
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
     
     def plot_delay_distribution(
@@ -409,8 +476,10 @@ class Visualizer:
             ax.set_xticklabels(labels, rotation=45, ha='right')
             ax.grid(axis='y', alpha=0.3)
         
-        plt.tight_layout()
-        
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        # 抑制字体警告
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=UserWarning)
+            plt.tight_layout()
+            if save_path:
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()

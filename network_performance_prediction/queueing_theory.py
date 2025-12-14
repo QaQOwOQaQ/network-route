@@ -11,9 +11,14 @@ from .scenario_generator import NetworkState, TrafficPattern
 class QueueingTheoryPredictor:
     """排队论性能预测器"""
     
-    def __init__(self):
-        """初始化排队论预测器"""
-        pass
+    def __init__(self, max_delay: float = 2000.0):
+        """
+        初始化排队论预测器
+        
+        Args:
+            max_delay: 最大延迟上限（ms），防止异常大的预测值
+        """
+        self.max_delay = max_delay
     
     def predict_mm1(
         self,
@@ -21,7 +26,7 @@ class QueueingTheoryPredictor:
         service_rate: float
     ) -> Dict[str, float]:
         """
-        使用M/M/1模型预测性能
+        使用M/M/1模型预测性能（改进版，考虑丢包和延迟上限）
         
         Args:
             arrival_rate: 到达率 (packets/s)
@@ -30,29 +35,47 @@ class QueueingTheoryPredictor:
         Returns:
             性能指标字典
         """
+        # 确保输入值有效
+        arrival_rate = max(0.0, arrival_rate)
+        service_rate = max(0.001, service_rate)  # 避免除以0
+        
         if arrival_rate >= service_rate:
-            # 系统不稳定
-            return {
-                'utilization': 1.0,
-                'queue_length': float('inf'),
-                'delay': float('inf'),
-                'throughput': service_rate,
-                'packet_loss': 1.0
-            }
+            # 系统接近饱和，考虑丢包和流量控制
+            # 实际网络中会有丢包，有效到达率会降低
+            effective_arrival_rate = service_rate * 0.95  # 假设5%丢包
+            utilization = 0.95
+            packet_loss = 0.05 + (arrival_rate - service_rate) / arrival_rate * 0.1
+            packet_loss = min(packet_loss, 0.5)  # 最大丢包率50%
+        else:
+            effective_arrival_rate = arrival_rate
+            utilization = arrival_rate / service_rate
+            # 丢包率：当利用率高时开始丢包
+            packet_loss = 0.0 if utilization < 0.85 else (utilization - 0.85) * 0.2
+            packet_loss = min(packet_loss, 0.3)  # 最大丢包率30%
         
-        utilization = arrival_rate / service_rate
+        # 考虑丢包后的有效利用率
+        effective_utilization = utilization * (1 - packet_loss)
         
-        # 平均队列长度
-        queue_length = utilization / (1 - utilization)
+        # 限制利用率上限，避免极端值
+        effective_utilization = min(effective_utilization, 0.98)
         
-        # 平均延迟（Little's Law）
-        delay = queue_length / arrival_rate * 1000  # 转换为ms
+        # 平均队列长度（考虑丢包）
+        if effective_utilization < 1.0:
+            queue_length = effective_utilization / (1 - effective_utilization)
+        else:
+            queue_length = 50.0  # 饱和状态下的合理队列长度
         
-        # 吞吐量
-        throughput = arrival_rate * 8 / 1e6  # 转换为Mbps
+        # 平均延迟（Little's Law），使用有效到达率
+        if effective_arrival_rate > 0:
+            delay = queue_length / effective_arrival_rate * 1000  # 转换为ms
+        else:
+            delay = 0.0
         
-        # 丢包率（简化模型）
-        packet_loss = 0.0 if utilization < 0.9 else (utilization - 0.9) * 0.1
+        # 应用延迟上限，防止异常大的值
+        delay = min(delay, self.max_delay)
+        
+        # 吞吐量（考虑丢包）
+        throughput = effective_arrival_rate * (1 - packet_loss) * 8 / 1e6  # 转换为Mbps
         
         return {
             'utilization': utilization,
@@ -69,7 +92,7 @@ class QueueingTheoryPredictor:
         num_servers: int = 2
     ) -> Dict[str, float]:
         """
-        使用M/M/c模型预测性能（多服务器）
+        使用M/M/c模型预测性能（多服务器，改进版）
         
         Args:
             arrival_rate: 到达率
@@ -79,38 +102,49 @@ class QueueingTheoryPredictor:
         Returns:
             性能指标字典
         """
+        # 确保输入值有效
+        arrival_rate = max(0.0, arrival_rate)
+        service_rate = max(0.001, service_rate)
+        num_servers = max(1, num_servers)
+        
         total_service_rate = service_rate * num_servers
         
         if arrival_rate >= total_service_rate:
-            return {
-                'utilization': 1.0,
-                'queue_length': float('inf'),
-                'delay': float('inf'),
-                'throughput': total_service_rate,
-                'packet_loss': 1.0
-            }
+            # 系统接近饱和，考虑丢包
+            effective_arrival_rate = total_service_rate * 0.95
+            utilization = 0.95
+            packet_loss = 0.05 + (arrival_rate - total_service_rate) / arrival_rate * 0.1
+            packet_loss = min(packet_loss, 0.5)
+        else:
+            effective_arrival_rate = arrival_rate
+            utilization = arrival_rate / total_service_rate
+            packet_loss = 0.0 if utilization < 0.85 else (utilization - 0.85) * 0.2
+            packet_loss = min(packet_loss, 0.3)
         
-        utilization = arrival_rate / total_service_rate
-        rho = arrival_rate / service_rate  # 流量强度
+        effective_utilization = utilization * (1 - packet_loss)
+        effective_utilization = min(effective_utilization, 0.98)
+        
+        rho = effective_arrival_rate / service_rate  # 流量强度
         
         # 计算Erlang C公式（简化版）
-        if rho < num_servers:
+        if rho < num_servers * 0.98:
             # 平均队列长度（近似）
             queue_length = (rho ** num_servers) / (num_servers * (1 - rho / num_servers))
+            queue_length = min(queue_length, 100.0)  # 限制队列长度
         else:
-            queue_length = float('inf')
+            queue_length = 50.0  # 饱和状态
         
         # 平均延迟
-        if arrival_rate > 0:
-            delay = queue_length / arrival_rate * 1000
+        if effective_arrival_rate > 0:
+            delay = queue_length / effective_arrival_rate * 1000
         else:
             delay = 0.0
         
-        # 吞吐量
-        throughput = arrival_rate * 8 / 1e6
+        # 应用延迟上限
+        delay = min(delay, self.max_delay)
         
-        # 丢包率
-        packet_loss = 0.0 if utilization < 0.9 else (utilization - 0.9) * 0.1
+        # 吞吐量
+        throughput = effective_arrival_rate * (1 - packet_loss) * 8 / 1e6
         
         return {
             'utilization': utilization,
